@@ -9,76 +9,70 @@ dotenv.config()
 const app = express()
 const prisma = new PrismaClient()
 
+app.use(cors())
 app.use(express.json())
 
-// ✅ Libera o frontend hospedado na Vercel
-app.use(cors({
-    origin: 'https://atendimentos-frontend.vercel.app',
-    methods: ['GET', 'POST', 'PUT'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}))
-
-// ✅ Middleware para autenticar com Clerk
+// Middleware de autenticação Clerk
 async function autenticarClerk(req, res, next) {
     try {
-        const authHeader = req.headers.authorization
-        const token = authHeader?.split(' ')[1]
+        const token = req.headers.authorization?.split(' ')[1]
+        console.log('🔑 Token recebido do frontend:', token)
 
-        if (!token || token.split('.').length !== 3) {
-            return res.status(401).json({ erro: 'Token JWT inválido ou ausente.' })
-        }
+        const { userId } = await verifyToken(token, {
+            secretKey: process.env.CLERK_SECRET_KEY // ✅ Define a chave corretamente
+        })
+        console.log('✅ Token válido! userId:', userId)
 
-        const { userId } = await verifyToken(token)
+        let usuario = await prisma.usuario.findUnique({
+            where: { clerkId: userId }
+        })
 
-        let usuario = await prisma.usuario.findUnique({ where: { clerkId: userId } })
-
-        // 🔐 Se não existir no banco, busca na API da Clerk e cria automaticamente
         if (!usuario) {
-            const response = await fetch(`https://api.clerk.dev/v1/users/${userId}`, {
+            const dados = await fetch(`https://api.clerk.com/v1/users/${userId}`, {
                 headers: {
-                    Authorization: `Bearer ${process.env.CLERK_API_KEY}`
+                    Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}`
                 }
-            })
+            }).then(res => res.json())
 
-            const dados = await response.json()
             const email = dados?.email_addresses?.[0]?.email_address || ''
             const nome = dados?.first_name || ''
             const tipo = email === 'dev@sollos.ind.br' ? 'ADMIN' : 'SUPORTE'
 
-            usuario = await prisma.usuario.create({
-                data: { nome, email, tipo, clerkId: userId }
-            })
+            let existente = await prisma.usuario.findUnique({ where: { email } })
+
+            if (existente) {
+                usuario = await prisma.usuario.update({
+                    where: { email },
+                    data: { clerkId: userId }
+                })
+            } else {
+                usuario = await prisma.usuario.create({
+                    data: { nome, email, tipo, clerkId: userId }
+                })
+            }
         }
 
         req.usuario = usuario
         next()
-    } catch (err) {
-        console.error('❌ Erro ao validar token:', err)
+    } catch (erro) {
+        console.error('❌ Erro ao validar token:', erro)
         return res.status(403).json({ erro: 'Token inválido' })
     }
 }
 
-// 🔐 Rota para obter dados do usuário logado
-app.get('/me', autenticarClerk, async (req, res) => {
-    res.json({
-        id: req.usuario.id,
-        nome: req.usuario.nome,
-        email: req.usuario.email,
-        tipo: req.usuario.tipo
-    })
+// Rotas protegidas
+app.get('/me', autenticarClerk, (req, res) => {
+    res.json(req.usuario)
 })
 
-// ✏️ Atualizar nome
-app.put('/usuarios/nome', autenticarClerk, async (req, res) => {
-    const { nome } = req.body
-    const usuarioAtualizado = await prisma.usuario.update({
-        where: { id: req.usuario.id },
-        data: { nome }
+app.get('/atendimentos', autenticarClerk, async (req, res) => {
+    const atendimentos = await prisma.atendimento.findMany({
+        include: { usuario: true },
+        orderBy: { id: 'desc' }
     })
-    res.json(usuarioAtualizado)
+    res.json(atendimentos)
 })
 
-// ➕ Criar atendimento
 app.post('/atendimentos', autenticarClerk, async (req, res) => {
     const novo = await prisma.atendimento.create({
         data: {
@@ -89,35 +83,19 @@ app.post('/atendimentos', autenticarClerk, async (req, res) => {
     res.json(novo)
 })
 
-// 📄 Listar atendimentos (inclui nome do usuário)
-app.get('/atendimentos', autenticarClerk, async (req, res) => {
-    const lista = await prisma.atendimento.findMany({
-        include: { usuario: true },
-        orderBy: { data: 'desc' }
+app.put('/usuarios/:id', autenticarClerk, async (req, res) => {
+    const usuario = await prisma.usuario.update({
+        where: { id: Number(req.params.id) },
+        data: req.body
     })
-    res.json(lista)
+    res.json(usuario)
 })
 
-// 👤 Criar novo usuário manual (ADMIN)
-app.post('/usuarios', autenticarClerk, async (req, res) => {
-    if (req.usuario.tipo !== 'ADMIN') {
-        return res.status(403).json({ erro: 'Apenas administradores podem cadastrar usuários.' })
-    }
-
-    const { nome, email, senha, tipo } = req.body
-    try {
-        const novoUsuario = await prisma.usuario.create({
-            data: { nome, email, senha, tipo }
-        })
-        res.json(novoUsuario)
-    } catch (err) {
-        console.error('Erro ao criar usuário:', err)
-        res.status(400).json({ erro: 'Erro ao criar usuário.' })
-    }
+app.get('/usuarios', autenticarClerk, async (req, res) => {
+    const usuarios = await prisma.usuario.findMany({ orderBy: { nome: 'asc' } })
+    res.json(usuarios)
 })
 
-// ✅ Inicializa o servidor
-const PORT = process.env.PORT || 3001
-app.listen(PORT, () => {
-    console.log(`🚀 Backend rodando em http://localhost:${PORT}`)
+app.listen(3001, () => {
+    console.log('🚀 Backend rodando em http://localhost:3001')
 })
