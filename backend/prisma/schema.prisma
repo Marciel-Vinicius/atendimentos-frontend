@@ -7,29 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Usuario {
-  id    Int     @id @default(autoincrement())
-  clerkId String @unique
-  email String  @unique
-  nome  String
-  tipo  TipoUsuario
-  chamados Atendimento[]
-}
-
-model Atendimento {
-  id         Int      @id @default(autoincrement())
-  atendente  String
-  data       DateTime
-  horaInicio String
-  horaFim    String
-  loja       String
-  contato    String
-  ocorrencia String
-  usuarioId  Int
-  usuario    Usuario @relation(fields: [usuarioId], references: [id])
-}
-
-enum TipoUsuario {
-  ADMIN
-  SUPORTE
+model Chamado {
+  id                 Int      @id @default(autoincrement())
+  cliente            String
+  descricao          String
+  status             String
+  usuarioRelacionado String
+  createdAt          DateTime @default(now())
 }

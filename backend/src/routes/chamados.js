@@ -1,41 +1,54 @@
-const express = require('express');
+import express from 'express';
+import { PrismaClient } from '@prisma/client';
+import { authenticate } from '../middleware/auth.js';
+
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-// Criar chamado
-router.post('/', async (req, res) => {
-    const { atendente, dia, horaInicio, loja, contato, ocorrencia, horaFim, horario } = req.body;
-
-    try {
-        const chamado = await prisma.chamado.create({
-            data: {
-                atendente,
-                dia: new Date(dia),
-                horaInicio,
-                loja,
-                contato,
-                ocorrencia,
-                horaFim,
-                horario,
-            },
-        });
-        res.json(chamado);
-    } catch (error) {
-        res.status(500).json({ error: 'Erro ao criar chamado', details: error });
-    }
+router.get('/', authenticate, async (req, res) => {
+  const chamados = await prisma.chamado.findMany({
+    where: {
+      usuarioRelacionado: req.user.sub,
+    },
+  });
+  res.json(chamados);
 });
 
-// Listar chamados
-router.get('/', async (req, res) => {
-    try {
-        const chamados = await prisma.chamado.findMany({
-            orderBy: { dia: 'desc' }
-        });
-        res.json(chamados);
-    } catch (error) {
-        res.status(500).json({ error: 'Erro ao buscar chamados' });
-    }
+router.post('/', authenticate, async (req, res) => {
+  const { cliente, descricao, status } = req.body;
+
+  const chamado = await prisma.chamado.create({
+    data: {
+      cliente,
+      descricao,
+      status,
+      usuarioRelacionado: req.user.sub,
+    },
+  });
+
+  res.json(chamado);
 });
 
-module.exports = router;
+router.put('/:id', authenticate, async (req, res) => {
+  const { id } = req.params;
+  const { cliente, descricao, status } = req.body;
+
+  const chamado = await prisma.chamado.update({
+    where: { id: Number(id) },
+    data: { cliente, descricao, status },
+  });
+
+  res.json(chamado);
+});
+
+router.delete('/:id', authenticate, async (req, res) => {
+  const { id } = req.params;
+
+  await prisma.chamado.delete({
+    where: { id: Number(id) },
+  });
+
+  res.json({ message: 'Chamado deletado com sucesso' });
+});
+
+export default router;
