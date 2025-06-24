@@ -11,7 +11,7 @@ const app = express();
 const prisma = new PrismaClient();
 
 app.use(cors({
-  origin: 'https://atendimentos-frontend.vercel.app',
+  origin: 'https://atendimentos-frontend.vercel.app/',
   methods: ['GET', 'POST', 'DELETE', 'PUT'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
