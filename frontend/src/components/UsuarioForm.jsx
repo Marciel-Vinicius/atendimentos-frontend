@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import axios from 'axios'
+import { useAuth } from '@clerk/clerk-react'
 
 export default function UsuarioForm() {
     const [form, setForm] = useState({
@@ -9,6 +10,8 @@ export default function UsuarioForm() {
         tipo: 'SUPORTE',
     })
 
+    const { getToken } = useAuth()
+
     const handleChange = (e) => {
         setForm({ ...form, [e.target.name]: e.target.value })
     }
@@ -16,8 +19,9 @@ export default function UsuarioForm() {
     const handleSubmit = async (e) => {
         e.preventDefault()
         try {
-            await axios.post('http://localhost:3001/usuarios', form, {
-                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+            const token = await getToken()
+            await axios.post(`${import.meta.env.VITE_API_URL}/usuarios`, form, {
+                headers: { Authorization: `Bearer ${token}` }
             })
             alert('Usuário cadastrado com sucesso!')
             setForm({ nome: '', email: '', senha: '', tipo: 'SUPORTE' })
