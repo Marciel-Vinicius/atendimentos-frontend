@@ -1,4 +1,3 @@
-
 import { SignedIn, SignedOut, RedirectToSignIn, useUser, useClerk } from '@clerk/clerk-react'
 import DashboardAdmin from './pages/DashboardAdmin'
 import DashboardSuporte from './pages/DashboardSuporte'
@@ -16,7 +15,7 @@ export default function App() {
   useEffect(() => {
     async function verificarNome() {
       const token = await getToken()
-      const res = await axios.get('http://localhost:3001/me', {
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/me`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (!res.data.nome) setNomeDefinido(false)

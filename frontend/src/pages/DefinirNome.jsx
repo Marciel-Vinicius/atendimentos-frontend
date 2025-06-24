@@ -8,7 +8,7 @@ export default function DefinirNome({ onDefinido }) {
 
   const enviar = async () => {
     const token = await getToken()
-    await axios.put("http://localhost:3001/usuarios/nome", { nome }, {
+    const res = await axios.get(`${import.meta.env.VITE_API_URL}/me`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     onDefinido()

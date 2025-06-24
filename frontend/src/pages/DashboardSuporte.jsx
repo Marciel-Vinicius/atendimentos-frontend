@@ -1,12 +1,9 @@
-
-import AtendimentoForm from "../components/AtendimentoForm"
-import AtendimentoList from "../components/AtendimentoList"
+import AtendimentoForm from '../components/AtendimentoForm'
 
 export default function DashboardSuporte() {
   return (
-    <div>
+    <>
       <AtendimentoForm />
-      <AtendimentoList />
-    </div>
+    </>
   )
 }

@@ -1,9 +1,12 @@
+import AtendimentoForm from '../components/AtendimentoForm'
+import AtendimentoList from '../components/AtendimentoList'
 
 export default function DashboardAdmin() {
   return (
-    <div>
-      <h2 className="text-xl font-bold">Painel do Administrador</h2>
-      <p>Aqui você pode gerenciar usuários e ver chamados.</p>
-    </div>
+    <>
+      <AtendimentoForm />
+      <hr className="my-6 border-gray-700" />
+      <AtendimentoList />
+    </>
   )
 }
