@@ -8,7 +8,11 @@ dotenv.config()
 const app = express()
 const prisma = new PrismaClient()
 
-app.use(cors())
+app.use(cors({
+    origin: 'https://atendimentos-frontend.vercel.app',
+    methods: ['GET', 'POST', 'PUT'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}))
 app.use(express.json())
 
 // 🔐 Middleware para autenticar via Clerk
