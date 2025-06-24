@@ -11,45 +11,22 @@ const prisma = new PrismaClient()
 app.use(cors())
 app.use(express.json())
 
+// 🔐 Middleware para autenticar via Clerk
 async function autenticarClerk(req, res, next) {
-    const token = req.headers.authorization?.split('Bearer ')[1]
-    if (!token) return res.status(401).json({ erro: 'Sem token' })
-
     try {
-        const payload = await verifyToken(token, {
-            secretKey: process.env.CLERK_SECRET_KEY
-        })
+        const authHeader = req.headers.authorization
+        const token = authHeader?.split(' ')[1]
 
-        req.clerkUser = payload
-        const { sub } = payload
-
-        const email =
-            payload.email_addresses?.[0]?.email_address ||
-            payload.email ||
-            payload.primary_email_address?.email_address ||
-            'sem-email@clerk.dev'
-
-        let usuario = await prisma.usuario.findUnique({ where: { clerkId: sub } })
-
-        if (!usuario) {
-            const usuarioExistente = await prisma.usuario.findUnique({ where: { email } })
-
-            if (usuarioExistente) {
-                usuario = await prisma.usuario.update({
-                    where: { id: usuarioExistente.id },
-                    data: { clerkId: sub }
-                })
-            } else {
-                const tipo = email === 'dev@sollos.ind.br' ? 'ADMIN' : 'SUPORTE'
-                usuario = await prisma.usuario.create({
-                    data: { clerkId: sub, email, nome: '', tipo }
-                })
-            }
+        if (!token || token.split('.').length !== 3) {
+            return res.status(401).json({ erro: 'Token JWT inválido ou ausente.' })
         }
 
-        req.usuarioId = usuario.id
-        req.usuarioTipo = usuario.tipo
-        req.usuarioNome = usuario.nome
+        const { userId } = await verifyToken(token)
+        const usuario = await prisma.usuario.findUnique({ where: { clerkId: userId } })
+
+        if (!usuario) return res.status(403).json({ erro: 'Usuário não encontrado' })
+
+        req.usuario = usuario
         next()
     } catch (err) {
         console.error('Erro ao validar token:', err)
@@ -57,48 +34,60 @@ async function autenticarClerk(req, res, next) {
     }
 }
 
+// 🧑 Retorna dados do usuário logado
 app.get('/me', autenticarClerk, async (req, res) => {
-    const usuario = await prisma.usuario.findUnique({
-        where: { id: req.usuarioId },
-        select: { nome: true, tipo: true }
-    })
-    res.json(usuario)
+    res.json({ nome: req.usuario.nome, email: req.usuario.email, tipo: req.usuario.tipo })
 })
 
+// ✏️ Define o nome do usuário
 app.put('/usuarios/nome', autenticarClerk, async (req, res) => {
     const { nome } = req.body
-    const atualizado = await prisma.usuario.update({
-        where: { id: req.usuarioId },
+    const usuarioAtualizado = await prisma.usuario.update({
+        where: { id: req.usuario.id },
         data: { nome }
     })
-    res.json(atualizado)
+    res.json(usuarioAtualizado)
 })
 
+// ➕ Cria novo atendimento
 app.post('/atendimentos', autenticarClerk, async (req, res) => {
-    const { atendente, data, horaInicio, horaFim, loja, contato, ocorrencia } = req.body
     const novo = await prisma.atendimento.create({
         data: {
-            atendente,
-            data: new Date(data),
-            horaInicio,
-            horaFim,
-            loja,
-            contato,
-            ocorrencia,
-            usuarioId: req.usuarioId
+            ...req.body,
+            usuarioId: req.usuario.id
         }
     })
-    res.status(201).json(novo)
+    res.json(novo)
 })
 
+// 📃 Lista atendimentos
 app.get('/atendimentos', autenticarClerk, async (req, res) => {
     const lista = await prisma.atendimento.findMany({
-        orderBy: { data: 'desc' },
-        include: { usuario: { select: { nome: true, email: true } } }
+        include: { usuario: true },
+        orderBy: { data: 'desc' }
     })
     res.json(lista)
 })
 
+// ➕ Cadastrar novo usuário (ADMIN)
+app.post('/usuarios', autenticarClerk, async (req, res) => {
+    if (req.usuario.tipo !== 'ADMIN') {
+        return res.status(403).json({ erro: 'Apenas administradores podem cadastrar usuários.' })
+    }
+
+    const { nome, email, senha, tipo } = req.body
+    try {
+        const novoUsuario = await prisma.usuario.create({
+            data: { nome, email, senha, tipo }
+        })
+        res.json(novoUsuario)
+    } catch (err) {
+        console.error('Erro ao criar usuário:', err)
+        res.status(400).json({ erro: 'Erro ao criar usuário.' })
+    }
+})
+
+// ✅ Inicialização do servidor
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
     console.log(`🚀 Backend rodando em http://localhost:${PORT}`)
