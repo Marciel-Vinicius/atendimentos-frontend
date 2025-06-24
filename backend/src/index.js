@@ -10,9 +10,8 @@ dotenv.config();
 const app = express();
 const prisma = new PrismaClient();
 
-const cors = require('cors');
 app.use(cors({
-  origin: 'https://atendimentos-frontend.vercel.app/', // domínio do seu frontend
+  origin: 'https://atendimentos-frontend.vercel.app',
   methods: ['GET', 'POST', 'DELETE', 'PUT'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
