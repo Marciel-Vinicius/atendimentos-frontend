@@ -1,37 +1,29 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
-import chamadosRoutes from './routes/chamados.js';
-import { authenticate } from './middleware/auth.js';
-import { PrismaClient } from '@prisma/client';
-
-dotenv.config();
+import chamadosRoutes from './routes/chamados.routes.js';
+import { authMiddleware } from './middlewares/auth.js';
 
 const app = express();
-const prisma = new PrismaClient();
+const PORT = process.env.PORT || 5000;
 
+// ✅ Ativando CORS corretamente ANTES de qualquer middleware
 app.use(cors({
   origin: 'https://atendimentos-frontend.vercel.app/',
-  methods: ['GET', 'POST', 'DELETE', 'PUT'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
+// ✅ Middleware para interpretar JSON
 app.use(express.json());
 
-app.get('/', (req, res) => {
-  res.json({ message: 'API Funcionando 🚀' });
-});
+// ✅ Middleware de autenticação
+app.use(authMiddleware);
 
-app.get('/me', authenticate, async (req, res) => {
-  res.json({
-    message: 'Usuário autenticado com sucesso',
-    user: req.user,
-  });
-});
-
+// ✅ Rotas
 app.use('/chamados', chamadosRoutes);
 
-const port = process.env.PORT || 5000;
-app.listen(port, () => {
-  console.log(`Servidor rodando na porta ${port}`);
+// ✅ Inicialização do servidor
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
+

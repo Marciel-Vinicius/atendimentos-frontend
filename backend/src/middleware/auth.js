@@ -1,6 +1,11 @@
 import jwt from 'jsonwebtoken';
 
 export const authenticate = (req, res, next) => {
+  // ✅ Permitir preflight CORS
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204); // No Content
+  }
+
   const authHeader = req.headers.authorization;
   if (!authHeader) {
     return res.status(401).json({ error: 'No token provided' });
